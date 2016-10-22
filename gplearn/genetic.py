@@ -202,6 +202,7 @@ class BaseSymbolic(six.with_metaclass(ABCMeta, BaseEstimator)):
         self.n_jobs = n_jobs
         self.verbose = verbose
         self.random_state = random_state
+        self._programs = []
 
     def _verbose_reporter(self,
                           start_time=None,
@@ -264,7 +265,7 @@ class BaseSymbolic(six.with_metaclass(ABCMeta, BaseEstimator)):
                    oob_fitness,
                    remaining_time))
 
-    def fit(self, X, y, sample_weight=None):
+    def fit(self, X, y, sample_weight=None, clear_programs=False):
         """Fit the Genetic Program according to X, y.
 
         Parameters
@@ -368,7 +369,8 @@ class BaseSymbolic(six.with_metaclass(ABCMeta, BaseEstimator)):
         params['arities'] = self._arities
         params['method_probs'] = self._method_probs
 
-        self._programs = []
+        if(clear_programs):
+            self._programs = []
 
         if self.verbose:
             # Print header fields
@@ -377,17 +379,17 @@ class BaseSymbolic(six.with_metaclass(ABCMeta, BaseEstimator)):
 
         for gen in range(self.generations):
 
-            if gen == 0:
-                parents = None
-            else:
+            if(len(self._programs) > 0):
                 parents = self._programs[gen - 1]
+            else:
+                parents = None
 
             # Parallel loop
             n_jobs, n_programs, starts = _partition_estimators(
                 self.population_size, self.n_jobs)
             seeds = random_state.randint(MAX_INT, size=self.population_size)
 
-            population = Parallel(n_jobs=n_jobs,
+            population = Parallel(n_jobs=n_jobs, backend="threading",
                                   verbose=int(self.verbose > 1))(
                 delayed(_parallel_evolve)(n_programs[i],
                                           parents,
